@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tabby 分期 — SDK 示例</title>
+    <link rel="stylesheet" href="shared/payment.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
+  </head>
+  <body>
+    <header class="page-header">
+      <a class="back-link" href="index.html">← 返回首页</a>
+      <h1>Tabby 分期支付示例</h1>
+      <span class="env-badge">沙箱环境</span>
+    </header>
+
+    <div class="demo-layout">
+
+      <!-- 左侧：交互区 -->
+      <div class="demo-panel">
+        <div class="payment-card">
+          <h2>Tabby 分期支付</h2>
+
+          <div id="container">
+            <div class="field">
+              <label>邮箱</label>
+              <div class="input-wrap" id="payerEmail"></div>
+            </div>
+            <div class="field">
+              <label>手机号码</label>
+              <div class="input-wrap" id="mobileNumber"></div>
+            </div>
+            <div class="field">
+              <button id="submit" type="button">立即支付</button>
+            </div>
+          </div>
+
+          <div class="error-banner" id="errorBanner"></div>
+          <div class="success-banner" id="successBanner"></div>
+        </div>
+      </div>
+
+      <!-- 右侧：代码区 -->
+      <div class="code-panel">
+        <div class="code-tabs">
+          <button class="code-tab active" data-tab="html">HTML</button>
+          <button class="code-tab" data-tab="js">JavaScript</button>
+        </div>
+        <div class="code-body">
+          <pre id="pane-html"><code id="code-html" class="language-html"></code></pre>
+          <pre id="pane-js" hidden><code id="code-js" class="language-javascript"></code></pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- Payment JS SDK（沙箱环境） -->
+    <script src="https://h5-dev.gccpay.cn/jssdk/gccpay.payment.sdk.1.0.0.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+
+    <script>
+      /* ── 源码展示 ─────────────────────────────────────────── */
+      const HTML_SOURCE = `<div id="container">
+  <div class="field">
+    <label>邮箱</label>
+    <div class="input-wrap" id="payerEmail"></div>
+  </div>
+
+  <div class="field">
+    <label>手机号码</label>
+    <div class="input-wrap" id="mobileNumber"></div>
+  </div>
+
+  <div class="field">
+    <button id="submit" type="button">立即支付</button>
+  </div>
+</div>`;
+
+      const JS_SOURCE = `const initializePayment = async (orderId) => {
+  try {
+    const paymentInstance = new PaymentSDK(
+      orderId,
+      'tabby',         // 支付方式（Tamara 替换为 'tamara'）
+      'online_payin',  // 交易码（固定值）
+      false,           // iframe3DSFlag：先买后付跳转新页面
+      'en-US'          // contentLanguage
+    );
+
+    paymentInstance.on('paymentSuccess', (data) => {
+      console.log('paymentSuccess', data);
+    });
+
+    paymentInstance.on('paymentError', (data) => {
+      console.error('paymentError', data);
+    });
+
+    await paymentInstance.init({
+      container:    document.getElementById('container'),
+      payerEmail:   { container: document.getElementById('payerEmail') },
+      mobileNumber: { container: document.getElementById('mobileNumber') },
+      submit:       { container: document.getElementById('submit') },
+    });
+
+    document.getElementById('submit').addEventListener('click', () => {
+      paymentInstance.submit();
+    });
+  } catch (error) {
+    console.error('SDK 初始化失败', error);
+  }
+};
+
+const urlParams = new URLSearchParams(window.location.search);
+const orderId = urlParams.get('orderId');
+initializePayment(orderId);`;
+
+      document.getElementById('code-html').textContent = HTML_SOURCE;
+      document.getElementById('code-js').textContent = JS_SOURCE;
+      hljs.highlightAll();
+
+      /* ── 标签切换 ─────────────────────────────────────────── */
+      document.querySelectorAll('.code-tab').forEach((tab) => {
+        tab.addEventListener('click', () => {
+          document.querySelectorAll('.code-tab').forEach((t) => t.classList.remove('active'));
+          tab.classList.add('active');
+          const target = tab.dataset.tab;
+          document.getElementById('pane-html').hidden = target !== 'html';
+          document.getElementById('pane-js').hidden  = target !== 'js';
+        });
+      });
+
+      /* ── 支付初始化 ───────────────────────────────────────── */
+      const initializePayment = async (orderId) => {
+        try {
+          const paymentInstance = new PaymentSDK(
+            orderId,
+            'tabby',
+            'online_payin',
+            false,
+            'en-US'
+          );
+
+          paymentInstance.on('paymentSuccess', (data) => {
+            console.log('paymentSuccess', data);
+            showSuccess('支付成功！订单号：' + (data.orderId || orderId));
+          });
+
+          paymentInstance.on('paymentError', (data) => {
+            console.error('paymentError', data);
+            showError(data.message || '支付失败，请重试。');
+          });
+
+          await paymentInstance.init({
+            container:    document.getElementById('container'),
+            payerEmail:   { container: document.getElementById('payerEmail') },
+            mobileNumber: { container: document.getElementById('mobileNumber') },
+            submit:       { container: document.getElementById('submit') },
+          });
+
+          document.getElementById('submit').addEventListener('click', () => {
+            paymentInstance.submit();
+          });
+        } catch (error) {
+          console.error('SDK 初始化失败', error);
+          document.getElementById('container').innerHTML =
+            `<div class="init-error">SDK 初始化失败：${error.message}</div>`;
+        }
+      };
+
+      const showError = (message) => {
+        const banner = document.getElementById('errorBanner');
+        banner.textContent = message;
+        banner.classList.add('visible');
+        setTimeout(() => banner.classList.remove('visible'), 5000);
+      };
+
+      const showSuccess = (message) => {
+        document.getElementById('successBanner').textContent = message;
+        document.getElementById('successBanner').classList.add('visible');
+      };
+
+      const urlParams = new URLSearchParams(window.location.search);
+      const orderId = urlParams.get('orderId');
+      initializePayment(orderId);
+    </script>
+  </body>
+</html>

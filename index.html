@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Payment JS SDK 示例</title>
+    <link rel="stylesheet" href="shared/payment.css" />
+    <style>
+      .hero {
+        text-align: center;
+        padding: 48px 24px 32px;
+      }
+      .hero h1 {
+        margin: 0 0 8px;
+        font-size: 28px;
+        font-weight: 700;
+        color: #161616;
+      }
+      .hero p {
+        margin: 0 0 20px;
+        color: #6b7280;
+        font-size: 15px;
+        line-height: 1.6;
+      }
+
+      /* orderId 输入区域 */
+      .order-input-wrap {
+        display: flex;
+        gap: 8px;
+        justify-content: center;
+        align-items: center;
+        margin: 20px auto 0;
+        max-width: 480px;
+        padding: 0 16px;
+      }
+      .order-input-wrap input {
+        flex: 1;
+        height: 40px;
+        padding: 0 12px;
+        border: 1px solid #d1d1d1;
+        border-radius: 6px;
+        font-size: 14px;
+        color: #161616;
+        outline: none;
+        transition: border-color 0.2s;
+        font-family: "SF Mono", "Consolas", monospace;
+      }
+      .order-input-wrap input::placeholder {
+        color: #9ca3af;
+        font-family: -apple-system, "BlinkMacSystemFont", sans-serif;
+        font-size: 13px;
+      }
+      .order-input-wrap input:focus {
+        border-color: #009d8a;
+      }
+      .order-input-wrap input.input-error {
+        border-color: #f5222d;
+        animation: shake 0.3s ease;
+      }
+      @keyframes shake {
+        0%, 100% { transform: translateX(0); }
+        25%       { transform: translateX(-6px); }
+        75%       { transform: translateX(6px); }
+      }
+
+      .order-hint {
+        margin: 8px auto 0;
+        max-width: 480px;
+        padding: 0 16px;
+        font-size: 12px;
+        color: #9ca3af;
+        text-align: left;
+      }
+      .order-hint.error-hint {
+        color: #f5222d;
+      }
+
+      /* 卡片点击时不走默认 href，由 JS 控制跳转 */
+      .demo-card {
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="hero">
+      <h1>Payment JS SDK</h1>
+      <p>各支付方式的集成示例，请先输入订单号，再选择支付方式进入对应示例页面。</p>
+      <span class="env-badge">沙箱 / 测试环境</span>
+
+      <div class="order-input-wrap">
+        <input
+          type="text"
+          id="orderIdInput"
+          placeholder="请输入 orderId（服务端下单后获取）"
+          autocomplete="off"
+          spellcheck="false"
+        />
+      </div>
+      <div class="order-hint" id="orderHint">
+        orderId 将作为 URL 参数传入示例页面
+      </div>
+    </div>
+
+    <div class="index-grid">
+      <a class="demo-card" data-page="card-payment.html">
+        <span class="card-icon">💳</span>
+        <span class="card-title">银行卡支付</span>
+        <span class="card-desc">支持信用卡 / 借记卡，3DS 验证以 iframe 方式嵌入收银台。</span>
+      </a>
+
+      <a class="demo-card" data-page="apple-pay.html">
+        <span class="card-icon"> Apple Pay</span>
+        <span class="card-title">Apple Pay</span>
+        <span class="card-desc">由 SDK 渲染 Apple Pay 按钮，一键完成支付。</span>
+      </a>
+
+      <a class="demo-card" data-page="stc-pay.html">
+        <span class="card-icon">📱</span>
+        <span class="card-title">STC Pay</span>
+        <span class="card-desc">沙特电信钱包支付，通过手机号码完成扣款。</span>
+      </a>
+
+      <a class="demo-card" data-page="tabby.html">
+        <span class="card-icon">🛍️</span>
+        <span class="card-title">Tabby 分期</span>
+        <span class="card-desc">先买后付分期支付，通过 Tabby 完成授权。</span>
+      </a>
+
+      <a class="demo-card" data-page="tamara.html">
+        <span class="card-icon">🛒</span>
+        <span class="card-title">Tamara 分期</span>
+        <span class="card-desc">先买后付分期支付，通过 Tamara 完成授权。</span>
+      </a>
+    </div>
+
+    <script>
+      const input = document.getElementById("orderIdInput");
+      const hint  = document.getElementById("orderHint");
+
+      // 恢复上次填写的 orderId
+      const saved = localStorage.getItem("demo_orderId");
+      if (saved) input.value = saved;
+
+      // 实时保存到 localStorage
+      input.addEventListener("input", () => {
+        localStorage.setItem("demo_orderId", input.value.trim());
+        resetHint();
+      });
+
+      const resetHint = () => {
+        input.classList.remove("input-error");
+        hint.className = "order-hint";
+        hint.textContent = "orderId 将作为 URL 参数传入示例页面";
+      };
+
+      const showError = () => {
+        input.classList.add("input-error");
+        hint.className = "order-hint error-hint";
+        hint.textContent = "请先填写 orderId，再选择支付方式";
+        input.focus();
+        // 动画结束后移除 class，以便下次还能触发
+        input.addEventListener("animationend", () => {
+          input.classList.remove("input-error");
+        }, { once: true });
+      };
+
+      document.querySelectorAll(".demo-card").forEach((card) => {
+        card.addEventListener("click", (e) => {
+          e.preventDefault();
+          const orderId = input.value.trim();
+          if (!orderId) {
+            showError();
+            return;
+          }
+          const page = card.dataset.page;
+          window.location.href = `${page}?orderId=${encodeURIComponent(orderId)}`;
+        });
+      });
+    </script>
+  </body>
+</html>
