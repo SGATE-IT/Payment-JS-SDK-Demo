@@ -182,35 +182,6 @@ button#submit:active {
   line-height: 1.6;
 }
 
-.debug-panel {
-  margin-top: 16px;
-  border: 1px solid #d9e2f2;
-  border-radius: 8px;
-  background-color: #f8fbff;
-  overflow: hidden;
-}
-
-.debug-header {
-  padding: 10px 14px;
-  border-bottom: 1px solid #d9e2f2;
-  font-size: 13px;
-  font-weight: 600;
-  color: #1f2937;
-}
-
-.debug-log {
-  margin: 0;
-  padding: 12px 14px;
-  max-height: 220px;
-  overflow-y: auto;
-  white-space: pre-wrap;
-  word-break: break-word;
-  font-size: 12px;
-  line-height: 1.6;
-  color: #334155;
-  font-family: "SF Mono", "Consolas", monospace;
-}
-
 /* ── Index page cards ────────────────────────────────────────── */
 .index-grid {
   display: grid;
