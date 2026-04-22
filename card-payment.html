@@ -43,8 +43,16 @@
             </div>
           </div>
 
+          <div class="info-banner">
+            不要手动嵌套 <code>iframe3ds.html</code>。3DS 页面由 SDK 在支付提交后自动创建并通过
+            <code>postMessage</code> 注入内容。
+          </div>
           <div class="error-banner" id="errorBanner"></div>
           <div class="success-banner" id="successBanner"></div>
+          <div class="debug-panel">
+            <div class="debug-header">3DS 调试日志</div>
+            <pre class="debug-log" id="debugLog">等待初始化...</pre>
+          </div>
         </div>
       </div>
 
@@ -148,8 +156,43 @@ initializePayment(orderId);`;
       });
 
       /* ── 支付初始化 ───────────────────────────────────────── */
+      const debugLog = document.getElementById('debugLog');
+      const containerElement = document.getElementById('container');
+
+      const appendLog = (label, payload) => {
+        const timestamp = new Date().toLocaleTimeString('zh-CN', { hour12: false });
+        const details = payload === undefined
+          ? ''
+          : ` ${typeof payload === 'string' ? payload : JSON.stringify(payload)}`;
+        debugLog.textContent += `\n[${timestamp}] ${label}${details}`;
+        debugLog.scrollTop = debugLog.scrollHeight;
+      };
+
+      const initialize3DSDebug = () => {
+        appendLog('页面加载', '等待 SDK 初始化');
+
+        window.addEventListener('message', (event) => {
+          if (!event || !event.data || typeof event.data !== 'object') return;
+          const type = event.data.type || 'unknown';
+          if (type === 'log' || type === '3ds' || type === 'paymentSuccess' || type === 'paymentError') {
+            appendLog(`window.message:${type}`, event.data.data || event.data);
+          }
+        });
+
+        const observer = new MutationObserver(() => {
+          const iframeCount = containerElement.querySelectorAll('iframe').length;
+          appendLog('容器变更', `当前 iframe 数量: ${iframeCount}`);
+        });
+
+        observer.observe(containerElement, { childList: true, subtree: true });
+      };
+
       const initializePayment = async (orderId) => {
         try {
+          if (!orderId) {
+            throw new Error('缺少 orderId，请从 index.html 传入有效订单号。');
+          }
+
           const paymentInstance = new PaymentSDK(
             orderId,
             'cardpay',
@@ -158,18 +201,22 @@ initializePayment(orderId);`;
             'en-US'
           );
 
+          appendLog('PaymentSDK 已创建', { orderId, iframe3DSFlag: true });
+
           paymentInstance.on('paymentSuccess', (data) => {
             console.log('paymentSuccess', data);
+            appendLog('paymentSuccess', data);
             showSuccess('支付成功！订单号：' + (data.orderId || orderId));
           });
 
           paymentInstance.on('paymentError', (data) => {
             console.error('paymentError', data);
+            appendLog('paymentError', data);
             showError(data.message || '支付失败，请重试。');
           });
 
           await paymentInstance.init({
-            container:      document.getElementById('container'),
+            container:      containerElement,
             payerEmail:     { container: document.getElementById('payerEmail') },
             cardHolderName: { container: document.getElementById('cardHolderName') },
             cardNumber:     { container: document.getElementById('cardNumber') },
@@ -178,11 +225,15 @@ initializePayment(orderId);`;
             submit:         { container: document.getElementById('submit') },
           });
 
+          appendLog('paymentInstance.init 完成');
+
           document.getElementById('submit').addEventListener('click', () => {
+            appendLog('submit 点击', '开始提交支付，若命中 3DS，SDK 会自动插入 challenge iframe');
             paymentInstance.submit();
           });
         } catch (error) {
           console.error('SDK 初始化失败', error);
+          appendLog('SDK 初始化失败', error.message);
           document.getElementById('container').innerHTML =
             `<div class="init-error">SDK 初始化失败：${error.message}</div>`;
         }
@@ -202,6 +253,7 @@ initializePayment(orderId);`;
 
       const urlParams = new URLSearchParams(window.location.search);
       const orderId = urlParams.get('orderId');
+      initialize3DSDebug();
       initializePayment(orderId);
     </script>
   </body>
